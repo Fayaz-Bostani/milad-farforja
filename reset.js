@@ -1,50 +1,28 @@
 const pool = require('./DB');
 const bcrypt = require('bcryptjs');
 
-async function fixUserPassword() {
+async function setupOnlineDatabase() {
   try {
-    const newPassword = 'milad8311';
+    console.log('Starting database setup...');
+
+    // 1. ساخت جدول کاربران با مچ کردن ساختار دقیق سرور مای‌اس‌کیوال
+    await pool.query("CREATE TABLE IF NOT EXISTS users (id INT AUTO_INCREMENT PRIMARY KEY, email VARCHAR(255) NOT NULL UNIQUE, password_hash VARCHAR(255) NOT NULL, role VARCHAR(50) NOT NULL DEFAULT 'user', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+    console.log('Table users created successfully!');
+
+    // 2. تزریق حساب ادمین اصلی
+    const email = 'fayazbostani72@gmail.com';
+    const password = 'milad8311';
     const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
-    const userEmail = 'fayazbostani72@gmail.com';
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-    // ۱. گرفتن لیست ستون‌های جدول
-    const [columns] = await pool.query('SHOW COLUMNS FROM users');
-    
-    let columnName = '';
-    for (let i = 0; i < columns.length; i++) {
-      let field = columns[i].Field.toLowerCase();
-      if (field.includes('pass') || field.includes('pwd')) {
-        columnName = columns[i].Field;
-        break;
-      }
-    }
-
-    if (!columnName) {
-      console.log('Password column not found! Available columns:');
-      for (let i = 0; i < columns.length; i++) {
-        console.log('- ' + columns[i].Field);
-      }
-      return;
-    }
-
-    console.log('Found password column: ' + columnName);
-
-    // ۲. آپدیت کردن رمز با نام ستون واقعی
-    const [result] = await pool.query(
-      'UPDATE users SET ' + columnName + ' = ? WHERE email = ?',
-      [hashedPassword, userEmail]
+    await pool.query(
+      'INSERT INTO users (email, password_hash, role) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE password_hash = ?',
+      [email, hashedPassword, 'admin', hashedPassword]
     );
+    
+    console.log('Admin account activated successfully!');
+    console.log('You can now log in to the website.');
 
-    if (result.affectedRows > 0) {
-      console.log('SUCCESS: Password reset to: ' + newPassword);
-    } else {
-      console.log('Email not found! Registered emails in database:');
-      const [users] = await pool.query('SELECT email FROM users');
-      for (let i = 0; i < users.length; i++) {
-        console.log('- ' + users[i].email);
-      }
-    }
   } catch (error) {
     console.error('Error occurred:', error.message);
   } finally {
@@ -52,4 +30,4 @@ async function fixUserPassword() {
   }
 }
 
-fixUserPassword();
+setupOnlineDatabase();
