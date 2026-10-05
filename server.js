@@ -39,7 +39,6 @@ const PORT = process.env.PORT || 5000;
 const pool = require('./DB');
 const bcrypt = require('bcryptjs');
 
-const PORT = process.env.PORT || 5000;
 app.listen(PORT, async () => {
   console.log(✅ سرور روی پورت ${PORT} اجرا شد);
   
