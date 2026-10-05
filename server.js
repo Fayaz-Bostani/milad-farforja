@@ -40,7 +40,7 @@ const pool = require('./DB');
 const bcrypt = require('bcryptjs');
 
 app.listen(PORT, async () => {
-  console.log(✅ سرور روی پورت ${PORT} اجرا شد);
+  console.log(`✅ سرور روی پورت ${PORT} اجرا شد`);
   
   try {
     // ساخت خودکار جدول در سرور آنلاین رندر
