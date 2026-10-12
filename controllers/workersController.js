@@ -20,10 +20,10 @@ const getOne = async (req, res) => {
 // افزودن کارگر
 const create = async (req, res) => {
   try {
-    const { worker_code, full_name, phone, address, start_date, status, work_type, hourly_rate, daily_rate } = req.body;
+    const { worker_code, full_name, phone, address, start_date, status, work_type, hourly_rate, daily_rate, day_hours } = req.body;
     const [result] = await db.query(
-      'INSERT INTO workers (worker_code, full_name, phone, address, start_date, status, work_type, hourly_rate, daily_rate) VALUES (?,?,?,?,?,?,?,?,?)',
-      [worker_code, full_name, phone, address, start_date, status || 'active', work_type, hourly_rate || 0, daily_rate || 0]
+      'INSERT INTO workers (worker_code, full_name, phone, address, start_date, status, work_type, hourly_rate, daily_rate, day_hours) VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [worker_code, full_name, phone, address, start_date, status || 'active', work_type, hourly_rate || 0, daily_rate || 0, day_hours || 8]
     );
     res.status(201).json({ id: result.insertId, message: 'کارگر اضافه شد.' });
   } catch (err) { console.error(err); res.status(500).json({ message: 'خطای سرور.' }); }
@@ -32,10 +32,10 @@ const create = async (req, res) => {
 // ویرایش کارگر
 const update = async (req, res) => {
   try {
-    const { full_name, phone, address, status, work_type, hourly_rate, daily_rate } = req.body;
+    const { full_name, phone, address, status, work_type, hourly_rate, daily_rate, day_hours } = req.body;
     await db.query(
-      'UPDATE workers SET full_name=?, phone=?, address=?, status=?, work_type=?, hourly_rate=?, daily_rate=? WHERE id=?',
-      [full_name, phone, address, status, work_type, hourly_rate, daily_rate, req.params.id]
+      'UPDATE workers SET full_name=?, phone=?, address=?, status=?, work_type=?, hourly_rate=?, daily_rate=?, day_hours=? WHERE id=?',
+      [full_name, phone, address, status, work_type, hourly_rate, daily_rate, day_hours || 8, req.params.id]
     );
     res.json({ message: 'کارگر بروزرسانی شد.' });
   } catch (err) { console.error(err); res.status(500).json({ message: 'خطای سرور.' }); }
@@ -71,12 +71,13 @@ const getAttendance = async (req, res) => {
 // ثبت مساعده
 const addAdvance = async (req, res) => {
   try {
-    const { worker_id, amount, date, note } = req.body;
+    const { worker_id, amount, date, note, kind } = req.body;
+    if (!(Number(amount) > 0)) return res.status(400).json({ message: 'مبلغ باید بیشتر از صفر باشد.' });
     await db.query(
-      'INSERT INTO worker_advances (worker_id, amount, date, note) VALUES (?,?,?,?)',
-      [worker_id, amount, date, note]
+      'INSERT INTO worker_advances (worker_id, amount, date, note, kind) VALUES (?,?,?,?,?)',
+      [worker_id, amount, date, note, kind === 'payment' ? 'payment' : 'advance']
     );
-    res.status(201).json({ message: 'مساعده ثبت شد.' });
+    res.status(201).json({ message: 'پرداخت ثبت شد.' });
   } catch (err) { console.error(err); res.status(500).json({ message: 'خطای سرور.' }); }
 };
 
