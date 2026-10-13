@@ -3,6 +3,7 @@ const router   = express.Router();
 const { authenticate, adminOnly, workerOrAbove, ownerOnly, customerOnly, workerOnly } = require('../middleware/auth');
 const myWorkerC = require('../controllers/myWorkerController');
 const ledgerC   = require('../controllers/workerLedgerController');
+const notifC    = require('../controllers/notificationsController');
 
 const authC        = require('../controllers/authController');
 const usersC       = require('../controllers/usersController');
@@ -42,6 +43,7 @@ router.get   ('/me/worker/ledger',        authenticate, workerOnly, ledgerC.getM
 router.get ('/me/account',        authenticate, customerOnly, myAccountC.getMyAccount);
 router.get ('/me/catalog',        authenticate, customerOnly, myAccountC.getCatalogForOrder);
 router.post('/me/orders',         authenticate, customerOnly, myAccountC.createMyOrder);
+router.get ('/me/invoices/:id',   authenticate, customerOnly, myAccountC.getMyInvoice);
 
 // ============================================================
 // گالری صفحه اصلی (مستقل از محصولات) + تنظیمات عمومی سایت (لوگو)
@@ -89,6 +91,9 @@ router.delete('/customers/:id',        authenticate, adminOnly,    customersC.re
 // ============================================================
 // عمومی (برای QR Code - بدون لاگین)
 router.get('/products/public', productsC.getPublic);
+router.get  ('/notifications',           authenticate, adminOnly, notifC.getAll);
+router.patch('/notifications/read-all',  authenticate, adminOnly, notifC.markAllRead);
+router.patch('/notifications/:id/read',  authenticate, adminOnly, notifC.markRead);
 router.get('/products/categories', productsC.getCategories);
 router.get('/products',     authenticate, adminOnly, productsC.getAll);
 router.get('/products/:id', authenticate, adminOnly, productsC.getOne);

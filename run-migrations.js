@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const db = require('./db');
 
-const FILES = ['migration_worker_link.sql', 'migration_worker_ledger.sql'];
+const FILES = ['migration_worker_link.sql', 'migration_worker_ledger.sql', 'migration_notifications_qr.sql'];
 const ALREADY = ['ER_DUP_FIELDNAME', 'ER_TABLE_EXISTS_ERROR', 'ER_DUP_KEYNAME'];
 
 (async () => {

@@ -29,6 +29,23 @@ const getAllUsers = async (req, res) => {
   }
 };
 
+// اگر حساب مشتری هنوز پرونده‌ی مشتری ندارد، یک پرونده‌ی تازه می‌سازد و وصلش می‌کند
+// (برگرداندن true یعنی پرونده تازه ساخته شد). کد پرونده را بعداً می‌شود از صفحه‌ی مشتریان عوض کرد.
+const ensureCustomerFile = async (userId) => {
+  const [linked] = await db.query('SELECT id FROM customers WHERE user_id = ?', [userId]);
+  if (linked.length) return false;
+  const [u] = await db.query('SELECT name FROM users WHERE id = ?', [userId]);
+  if (!u.length) return false;
+  let code = `WEB-${userId}`;
+  const [dup] = await db.query('SELECT id FROM customers WHERE customer_code = ?', [code]);
+  if (dup.length) code = `WEB-${userId}-${Date.now().toString().slice(-4)}`;
+  await db.query(
+    'INSERT INTO customers (customer_code, name, phone, address, user_id) VALUES (?,?,?,?,?)',
+    [code, u[0].name, '', '', userId]
+  );
+  return true;
+};
+
 // تأیید یا رد کاربر
 const approveUser = async (req, res) => {
   try {
@@ -41,7 +58,20 @@ const approveUser = async (req, res) => {
       return res.status(403).json({ message: 'شما اجازه‌ی تغییر این کاربر را ندارید.' });
 
     await db.query('UPDATE users SET is_approved = ? WHERE id = ?', [is_approved ? 1 : 0, id]);
-    res.json({ message: is_approved ? 'کاربر تأیید شد.' : 'تأیید کاربر لغو شد.' });
+
+    // مشتریِ تازه‌تأییدشده: اگر پرونده نداشت، خودکار ساخته و وصل می‌شود
+    // (اگر این بخش خطا بدهد، خودِ تأیید خراب نمی‌شود)
+    let createdFile = false;
+    if (is_approved && target.role === 'customer') {
+      try { createdFile = await ensureCustomerFile(id); }
+      catch (e) { console.error('auto customer file failed:', e.message); }
+    }
+
+    res.json({
+      message: is_approved
+        ? (createdFile ? 'کاربر تأیید شد و پرونده‌ی مشتری برایش ساخته شد.' : 'کاربر تأیید شد.')
+        : 'تأیید کاربر لغو شد.'
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'خطای سرور.' });
@@ -104,6 +134,9 @@ const deleteUser = async (req, res) => {
     if (!canManage(req.user, target.role))
       return res.status(403).json({ message: 'شما اجازه‌ی حذف این کاربر را ندارید.' });
 
+    // اتصال این حساب به پرونده‌ی مشتری/کارگر قطع می‌شود (خود پرونده‌ها پاک نمی‌شوند)
+    await db.query('UPDATE customers SET user_id = NULL WHERE user_id = ?', [id]);
+    await db.query('UPDATE workers SET user_id = NULL WHERE user_id = ?', [id]);
     await db.query('DELETE FROM users WHERE id = ?', [id]);
     res.json({ message: 'کاربر حذف شد.' });
   } catch (err) {

@@ -26,7 +26,7 @@ const getAll = async (req, res) => {
 const getPublic = async (req, res) => {
   try {
     const [rows] = await db.query(
-      `SELECT p.id, p.name, p.weight, p.height, p.width, p.price, p.image_path, p.description, c.name as category_name
+      `SELECT p.id, p.name, p.weight, p.height, p.width, p.image_path, p.description, c.name as category_name
        FROM products p
        LEFT JOIN product_categories c ON p.category_id = c.id
        WHERE p.is_active = 1
@@ -50,12 +50,12 @@ const getOne = async (req, res) => {
 
 const create = async (req, res) => {
   try {
-    const { product_code, name, category_id, weight, height, width, price, description, is_custom } = req.body;
+    const { product_code, name, category_id, weight, height, width, description, is_custom } = req.body;
     const image_path = req.file ? `/uploads/products/${req.file.filename}` : null;
 
     const [result] = await db.query(
-      'INSERT INTO products (product_code, name, category_id, weight, height, width, price, image_path, description, is_custom) VALUES (?,?,?,?,?,?,?,?,?,?)',
-      [product_code, name, category_id, weight, height, width, price || 0, image_path, description, is_custom ? 1 : 0]
+      'INSERT INTO products (product_code, name, category_id, weight, height, width, price, image_path, description, is_custom) VALUES (?,?,?,?,?,?,0,?,?,?)',
+      [product_code, name, category_id, weight, height, width, image_path, description, is_custom ? 1 : 0]
     );
 
     // اضافه کردن به موجودی انبار
@@ -67,11 +67,11 @@ const create = async (req, res) => {
 
 const update = async (req, res) => {
   try {
-    const { name, category_id, weight, height, width, price, description, is_custom, is_active } = req.body;
+    const { name, category_id, weight, height, width, description, is_custom, is_active } = req.body;
     const image_path = req.file ? `/uploads/products/${req.file.filename}` : undefined;
 
-    let query = 'UPDATE products SET name=?, category_id=?, weight=?, height=?, width=?, price=?, description=?, is_custom=?, is_active=?';
-    let params = [name, category_id, weight, height, width, price, description, is_custom ? 1 : 0, is_active ? 1 : 0];
+    let query = 'UPDATE products SET name=?, category_id=?, weight=?, height=?, width=?, description=?, is_custom=?, is_active=?';
+    let params = [name, category_id, weight, height, width, description, is_custom ? 1 : 0, is_active ? 1 : 0];
 
     if (image_path) { query += ', image_path=?'; params.push(image_path); }
     query += ' WHERE id=?';

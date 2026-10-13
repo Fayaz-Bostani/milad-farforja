@@ -153,6 +153,7 @@ const remove = async (req, res) => {
   try {
     const id = req.params.id;
     await conn.beginTransaction();
+    await conn.query('DELETE FROM worker_contract_jobs WHERE worker_id=?', [id]);
     await conn.query('DELETE FROM worker_attendance WHERE worker_id=?', [id]);
     await conn.query('DELETE FROM worker_activities WHERE worker_id=?', [id]);
     await conn.query('DELETE FROM worker_payments WHERE worker_id=?', [id]);

@@ -44,7 +44,7 @@ const getMyAccount = async (req, res) => {
 const getCatalogForOrder = async (req, res) => {
   try {
     const [rows] = await db.query(
-      `SELECT id, product_code, name, category_id, weight, price, image_path
+      `SELECT id, product_code, name, category_id, weight, image_path
        FROM products WHERE is_active = 1 ORDER BY name`
     );
     res.json(rows);
@@ -84,6 +84,15 @@ const createMyOrder = async (req, res) => {
     }
 
     await conn.commit();
+
+    // اعلان برای مدیر (اگر جدول اعلان‌ها مشکل داشت، ثبت سفارش خراب نمی‌شود)
+    try {
+      await db.query(
+        "INSERT INTO notifications (type, message, order_id) VALUES ('new_order', ?, ?)",
+        [`شما یک سفارش تازه از ${customer.name} دریافت کردید`, orderId]
+      );
+    } catch (e) { console.error('notification failed:', e.message); }
+
     res.status(201).json({ id: orderId, order_number: orderNumber, message: 'سفارش شما با موفقیت ثبت شد.' });
   } catch (err) {
     console.error(err);
@@ -94,4 +103,25 @@ const createMyOrder = async (req, res) => {
   }
 };
 
-module.exports = { getMyAccount, getCatalogForOrder, createMyOrder };
+// یک فاکتور مشخص، فقط اگر مال همین مشتری باشد (برای دیدن و چاپ توسط خود مشتری)
+const getMyInvoice = async (req, res) => {
+  try {
+    const customer = await getLinkedCustomer(req.user.id);
+    if (!customer) return res.status(404).json({ message: 'حساب شما هنوز به هیچ پرونده مشتری وصل نشده.' });
+
+    const [inv] = await db.query(
+      `SELECT i.*, c.name AS customer_name
+       FROM invoices i LEFT JOIN customers c ON i.customer_id = c.id
+       WHERE i.id = ? AND i.customer_id = ?`,
+      [req.params.id, customer.id]
+    );
+    if (!inv.length) return res.status(404).json({ message: 'فاکتور یافت نشد.' });
+
+    const [items] = await db.query(
+      'SELECT * FROM invoice_items WHERE invoice_id = ? ORDER BY `row_number`', [req.params.id]
+    );
+    res.json({ invoice: inv[0], items });
+  } catch (err) { console.error(err); res.status(500).json({ message: 'خطای سرور.' }); }
+};
+
+module.exports = { getMyAccount, getMyInvoice, getCatalogForOrder, createMyOrder };
