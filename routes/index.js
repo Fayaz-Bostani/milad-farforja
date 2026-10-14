@@ -104,6 +104,7 @@ router.delete('/products/:id',authenticate, adminOnly, productsC.remove);
 // ============================================================
 // سفارشات
 // ============================================================
+router.get ('/orders/next-number', authenticate, adminOnly, ordersC.getNextNumber);
 router.get ('/orders',          authenticate, adminOnly,    ordersC.getAll);
 router.get ('/orders/:id',      authenticate, adminOnly,    ordersC.getOne);
 router.post('/orders',          authenticate, adminOnly,   
@@ -117,6 +118,7 @@ router.delete('/orders/:id',       authenticate, adminOnly,    ordersC.remove);
 // ============================================================
 // فاکتور فروش
 // ============================================================
+router.get ('/invoices/next-number', authenticate, adminOnly, invoicesC.getNextNumber);
 router.get ('/invoices',     authenticate, adminOnly,    invoicesC.getAll);
 router.get ('/invoices/:id', authenticate, adminOnly,    invoicesC.getOne);
 router.post  ('/invoices',     authenticate, adminOnly, invoicesC.create);

@@ -1,4 +1,5 @@
 const db = require('../db');
+const { nextNumber } = require('../utils/numbering');
 
 // پیدا کردن رکورد مشتری متصل به این حساب کاربری
 const getLinkedCustomer = async (userId) => {
@@ -67,7 +68,7 @@ const createMyOrder = async (req, res) => {
 
     await conn.beginTransaction();
 
-    const orderNumber = 'ONL' + Date.now();
+    const orderNumber = await nextNumber('orders', conn); // همان شماره‌گذاری خودکار سفارش‌های دستی
     const [result] = await conn.query(
       `INSERT INTO orders (order_number, customer_id, order_date, status, source, note)
        VALUES (?, ?, CURDATE(), 'registered', 'customer', ?)`,

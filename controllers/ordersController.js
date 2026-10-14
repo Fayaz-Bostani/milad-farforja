@@ -1,4 +1,5 @@
 const db = require('../db');
+const { nextNumber } = require('../utils/numbering');
 const multer = require('multer');
 const path = require('path');
 
@@ -46,7 +47,10 @@ const create = async (req, res) => {
   try {
     await conn.beginTransaction();
 
-    const { order_number, bill_number, customer_id, order_date, delivery_date, note, extra_notes, items } = req.body;
+    const { order_number: rawOrderNumber, bill_number, customer_id, order_date, delivery_date, note, extra_notes, items } = req.body;
+    // اگر شماره سفارش خالی بود، خودکار شمارهٔ بعدی داده می‌شود؛ اگر دستی نوشته شده بود همان می‌ماند
+    const order_number = (rawOrderNumber !== undefined && rawOrderNumber !== null && String(rawOrderNumber).trim() !== '')
+      ? String(rawOrderNumber).trim() : await nextNumber('orders', conn);
     const sample_image = req.files?.sample_image?.[0]?.filename
       ? `/uploads/orders/${req.files.sample_image[0].filename}` : null;
     const design_file = req.files?.design_file?.[0]?.filename
@@ -54,7 +58,7 @@ const create = async (req, res) => {
 
     const [result] = await conn.query(
       'INSERT INTO orders (order_number, bill_number, customer_id, order_date, delivery_date, note, extra_notes, sample_image, design_file) VALUES (?,?,?,?,?,?,?,?,?)',
-      [order_number, bill_number, customer_id, order_date, delivery_date, note, extra_notes, sample_image, design_file]
+      [order_number, bill_number || null, customer_id, order_date, delivery_date || null, note || null, extra_notes || null, sample_image, design_file]
     );
 
     const orderId = result.insertId;
@@ -73,10 +77,17 @@ const create = async (req, res) => {
   } catch (err) {
     console.error(err);
     await conn.rollback();
+    if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'این شمارهٔ سفارش قبلاً استفاده شده است.' });
     res.status(500).json({ message: 'خطای سرور.' });
   } finally {
     conn.release();
   }
+};
+
+// شمارهٔ پیشنهادی بعدی برای فرم سفارش جدید
+const getNextNumber = async (req, res) => {
+  try { res.json({ next: await nextNumber('orders') }); }
+  catch (err) { console.error(err); res.status(500).json({ message: 'خطای سرور.' }); }
 };
 
 const updateStatus = async (req, res) => {
@@ -104,4 +115,4 @@ const remove = async (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ message: 'خطای سرور.' }); }
 };
 
-module.exports = { getAll, getOne, create, updateStatus, upload, remove, getUsage };
+module.exports = { getNextNumber, getAll, getOne, create, updateStatus, upload, remove, getUsage };

@@ -1,10 +1,11 @@
 const db  = require('../db');
 const QRCode = require('qrcode');
+const { nextNumber } = require('../utils/numbering');
 
 const getAll = async (req, res) => {
   try {
     const [rows] = await db.query(
-      `SELECT i.*, c.name as customer_name
+      `SELECT i.*, COALESCE(c.name, i.customer_name_text) as customer_name
        FROM invoices i LEFT JOIN customers c ON i.customer_id = c.id
        ORDER BY i.date DESC`
     );
@@ -15,7 +16,7 @@ const getAll = async (req, res) => {
 const getOne = async (req, res) => {
   try {
     const [inv] = await db.query(
-      `SELECT i.*, c.name as customer_name, c.phone as customer_phone
+      `SELECT i.*, COALESCE(c.name, i.customer_name_text) as customer_name, c.phone as customer_phone
        FROM invoices i LEFT JOIN customers c ON i.customer_id = c.id
        WHERE i.id = ?`, [req.params.id]
     );
@@ -35,12 +36,22 @@ const create = async (req, res) => {
     await conn.beginTransaction();
 
     const {
-      bill_number, customer_id, order_id, date,
+      bill_number: rawBill, customer_id, customer_name_text, order_id, date,
       factory_name, factory_address, factory_phone,
       notes, items,
       total_quantity, total_weight,          // اگه فرستاده نشن، خودکار از آیتم‌ها حساب می‌شن
       show_total_weight, show_total_quantity, // اختیاری بودن نمایش این دوتا توی چاپ
     } = req.body;
+
+    // مشتری: یا از لیست (customer_id) یا نام آزاد؛ یکی از این دو حتماً لازم است
+    const nameText = (customer_name_text || '').trim();
+    if (!customer_id && !nameText) {
+      await conn.rollback();
+      return res.status(400).json({ message: 'مشتری را از لیست انتخاب کنید یا نام او را بنویسید.' });
+    }
+    // شماره بل: دستی یا خودکار (اگر خالی بود، شمارهٔ بعدی)
+    const bill_number = (rawBill !== undefined && rawBill !== null && String(rawBill).trim() !== '')
+      ? String(rawBill).trim() : await nextNumber('invoices', conn);
 
     // محاسبه مجموع‌ها
     const validItems = (items || []).filter(i => i.item_name);
@@ -74,10 +85,10 @@ const create = async (req, res) => {
 
     const [result] = await conn.query(
       `INSERT INTO invoices
-       (bill_number, customer_id, order_id, date, factory_name, factory_address, factory_phone,
+       (bill_number, customer_id, customer_name_text, order_id, date, factory_name, factory_address, factory_phone,
         total_quantity, total_weight, total_amount, notes, qr_data, show_total_weight, show_total_quantity)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      [bill_number, customer_id, order_id || null, date,
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      [bill_number, customer_id || null, customer_id ? null : nameText, order_id || null, date,
        finalFactoryName, finalFactoryAddress, finalFactoryPhone,
        finalTotalQuantity, finalTotalWeight, total_amount, notes || null, qrImage,
        show_total_weight === false ? 0 : 1, show_total_quantity === false ? 0 : 1]
@@ -98,10 +109,11 @@ const create = async (req, res) => {
     }
 
     await conn.commit();
-    res.status(201).json({ id: invoiceId, message: 'فاکتور ثبت شد.' });
+    res.status(201).json({ id: invoiceId, bill_number, message: 'فاکتور ثبت شد.' });
   } catch (err) {
     await conn.rollback();
     console.error(err);
+    if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'این شمارهٔ بل قبلاً استفاده شده است.' });
     res.status(500).json({ message: 'خطای سرور.' });
   } finally {
     conn.release();
@@ -116,9 +128,17 @@ const update = async (req, res) => {
     await conn.beginTransaction();
 
     const {
-      bill_number, customer_id, order_id, date, notes, items,
+      bill_number: rawBill, customer_id, customer_name_text, order_id, date, notes, items,
       total_quantity, total_weight, show_total_weight, show_total_quantity,
     } = req.body;
+
+    const nameText = (customer_name_text || '').trim();
+    if (!customer_id && !nameText) {
+      await conn.rollback();
+      return res.status(400).json({ message: 'مشتری را از لیست انتخاب کنید یا نام او را بنویسید.' });
+    }
+    const bill_number = (rawBill !== undefined && rawBill !== null && String(rawBill).trim() !== '')
+      ? String(rawBill).trim() : await nextNumber('invoices', conn);
 
     const validItems = (items || []).filter(i => i.item_name);
     const autoTotalWeight = validItems.reduce((s, i) => s + (parseFloat(i.weight) || 0), 0);
@@ -129,10 +149,10 @@ const update = async (req, res) => {
       ? total_weight : autoTotalWeight;
 
     const [result] = await conn.query(
-      `UPDATE invoices SET bill_number=?, customer_id=?, order_id=?, date=?, notes=?,
+      `UPDATE invoices SET bill_number=?, customer_id=?, customer_name_text=?, order_id=?, date=?, notes=?,
         total_quantity=?, total_weight=?, total_amount=?, show_total_weight=?, show_total_quantity=?
        WHERE id=?`,
-      [bill_number, customer_id, order_id || null, date, notes || null,
+      [bill_number, customer_id || null, customer_id ? null : nameText, order_id || null, date, notes || null,
        finalTotalQuantity, finalTotalWeight, total_amount,
        show_total_weight === false ? 0 : 1, show_total_quantity === false ? 0 : 1, invoiceId]
     );
@@ -155,6 +175,7 @@ const update = async (req, res) => {
   } catch (err) {
     await conn.rollback();
     console.error(err);
+    if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ message: 'این شمارهٔ بل قبلاً استفاده شده است.' });
     res.status(500).json({ message: 'خطای سرور.' });
   } finally { conn.release(); }
 };
@@ -168,4 +189,10 @@ const remove = async (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ message: 'خطای سرور.' }); }
 };
 
-module.exports = { getAll, getOne, create, update, remove };
+// شمارهٔ پیشنهادی بعدی برای فرم فاکتور جدید
+const getNextNumber = async (req, res) => {
+  try { res.json({ next: await nextNumber('invoices') }); }
+  catch (err) { console.error(err); res.status(500).json({ message: 'خطای سرور.' }); }
+};
+
+module.exports = { getAll, getOne, create, update, remove, getNextNumber };

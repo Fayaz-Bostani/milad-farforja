@@ -111,8 +111,9 @@ const deleteHomeExpense = async (req, res) => {
 const getDashboard = async (req, res) => {
   try {
     const { month, year } = req.query;
-    const from = `${year}-${month}-01`;
-    const to   = `${year}-${month}-31`;
+    // فرانت‌اند حالا بازهٔ دقیق ماه شمسی را می‌فرستد؛ اگر نفرستاد، همان روش قبلی (ماه میلادی)
+    const from = req.query.from || `${year}-${month}-01`;
+    const to   = req.query.to   || `${year}-${month}-31`;
 
     const [[income]]   = await db.query('SELECT COALESCE(SUM(amount),0) as total FROM income_records WHERE date BETWEEN ? AND ?', [from, to]);
     const [[factExp]]  = await db.query('SELECT COALESCE(SUM(amount),0) as total FROM factory_expenses WHERE date BETWEEN ? AND ?', [from, to]);

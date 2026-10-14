@@ -50,12 +50,12 @@ const getOne = async (req, res) => {
 
 const create = async (req, res) => {
   try {
-    const { product_code, name, category_id, weight, height, width, description, is_custom } = req.body;
+    const { product_code, name, category_id, weight, height, width, description, is_custom, note } = req.body;
     const image_path = req.file ? `/uploads/products/${req.file.filename}` : null;
 
     const [result] = await db.query(
-      'INSERT INTO products (product_code, name, category_id, weight, height, width, price, image_path, description, is_custom) VALUES (?,?,?,?,?,?,0,?,?,?)',
-      [product_code, name, category_id, weight, height, width, image_path, description, is_custom ? 1 : 0]
+      'INSERT INTO products (product_code, name, category_id, weight, height, width, price, image_path, description, is_custom, note) VALUES (?,?,?,?,?,?,0,?,?,?,?)',
+      [product_code, name, category_id, weight, height, width, image_path, description, is_custom ? 1 : 0, note || null]
     );
 
     // اضافه کردن به موجودی انبار
@@ -67,11 +67,11 @@ const create = async (req, res) => {
 
 const update = async (req, res) => {
   try {
-    const { name, category_id, weight, height, width, description, is_custom, is_active } = req.body;
+    const { name, category_id, weight, height, width, description, is_custom, is_active, note } = req.body;
     const image_path = req.file ? `/uploads/products/${req.file.filename}` : undefined;
 
-    let query = 'UPDATE products SET name=?, category_id=?, weight=?, height=?, width=?, description=?, is_custom=?, is_active=?';
-    let params = [name, category_id, weight, height, width, description, is_custom ? 1 : 0, is_active ? 1 : 0];
+    let query = 'UPDATE products SET name=?, category_id=?, weight=?, height=?, width=?, description=?, is_custom=?, is_active=?, note=?';
+    let params = [name, category_id, weight, height, width, description, is_custom ? 1 : 0, is_active ? 1 : 0, note || null];
 
     if (image_path) { query += ', image_path=?'; params.push(image_path); }
     query += ' WHERE id=?';
