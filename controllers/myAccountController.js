@@ -125,4 +125,23 @@ const getMyInvoice = async (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ message: 'خطای سرور.' }); }
 };
 
-module.exports = { getMyAccount, getMyInvoice, getCatalogForOrder, createMyOrder };
+// موجودی انبار برای مشتری: فقط «موجود» یا «ناموجود» (ناموجود فقط وقتی تعداد صفر باشد)
+// تعداد دقیق هرگز به مشتری فرستاده نمی‌شود
+const getMyStock = async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT p.id, p.product_code, p.name, p.image_path, c.name AS category_name,
+              COALESCE(pi.quantity, 0) AS q
+         FROM products p
+         LEFT JOIN product_inventory pi ON pi.product_id = p.id
+         LEFT JOIN product_categories c ON p.category_id = c.id
+        WHERE p.is_active = 1 ORDER BY p.name`
+    );
+    res.json(rows.map(r => ({
+      id: r.id, product_code: r.product_code, name: r.name, image_path: r.image_path,
+      category_name: r.category_name, available: Number(r.q) > 0,
+    })));
+  } catch (err) { console.error(err); res.status(500).json({ message: 'خطای سرور.' }); }
+};
+
+module.exports = { getMyAccount, getMyInvoice, getCatalogForOrder, createMyOrder, getMyStock };

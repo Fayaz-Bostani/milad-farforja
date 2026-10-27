@@ -17,6 +17,8 @@ const inventoryC   = require('../controllers/inventoryController');
 const myAccountC   = require('../controllers/myAccountController');
 const heroC        = require('../controllers/heroController');
 const siteC        = require('../controllers/siteController');
+const notesC       = require('../controllers/notesController');
+const viewC        = require('../controllers/viewController');
 
 // ============================================================
 // احراز هویت
@@ -44,6 +46,27 @@ router.get ('/me/account',        authenticate, customerOnly, myAccountC.getMyAc
 router.get ('/me/catalog',        authenticate, customerOnly, myAccountC.getCatalogForOrder);
 router.post('/me/orders',         authenticate, customerOnly, myAccountC.createMyOrder);
 router.get ('/me/invoices/:id',   authenticate, customerOnly, myAccountC.getMyInvoice);
+router.get ('/me/stock',          authenticate, customerOnly, myAccountC.getMyStock);
+
+// ============================================================
+// یادداشت‌ها (ادمین، مالک، کارگر) — مسیرهای ثابت باید قبل از /notes/:id بیایند
+// ============================================================
+router.get   ('/notes/recipients',            authenticate, workerOrAbove, notesC.getRecipients);
+router.get   ('/notes/received',              authenticate, workerOrAbove, notesC.listReceived);
+router.delete('/notes/received/:id',          authenticate, workerOrAbove, notesC.leaveReceived);
+router.get   ('/notes/unread-count',          authenticate, workerOrAbove, notesC.unreadCount);
+router.get   ('/notes/files/:fileId/download',authenticate, workerOrAbove, notesC.downloadFile);
+router.patch ('/notes/files/:fileId',         authenticate, workerOrAbove, notesC.renameFile);
+router.delete('/notes/files/:fileId',         authenticate, workerOrAbove, notesC.removeFile);
+router.get   ('/notes',                       authenticate, workerOrAbove, notesC.listMine);
+router.post  ('/notes',                       authenticate, workerOrAbove, notesC.create);
+router.get   ('/notes/:id',                   authenticate, workerOrAbove, notesC.getOne);
+router.put   ('/notes/:id',                   authenticate, workerOrAbove, notesC.update);
+router.delete('/notes/:id',                   authenticate, workerOrAbove, notesC.remove);
+router.post  ('/notes/:id/files',             authenticate, workerOrAbove, notesC.uploadFiles, notesC.addFiles);
+
+// فهرست محصولات برای کارگر (فقط دیدن)
+router.get ('/worker/products',   authenticate, workerOrAbove, viewC.getWorkerProducts);
 
 // ============================================================
 // گالری صفحه اصلی (مستقل از محصولات) + تنظیمات عمومی سایت (لوگو)
